@@ -5,6 +5,7 @@ institute: "Linguistic Convergence Laboratory, NRU HSE"
 date: |
     | 14 March 2020
     |
+    | Presentation is available here: \alert{tinyurl.com/yx6cpd8t}
     |
     | ![](images/00_qrcode.png)'
 output: 
@@ -324,9 +325,74 @@ zilo_experiment %>%
   count(`1`, `2`) %>% 
   rename(sg = `1`,
          pl = `2`) %>% 
-  mutate(class = c("an", "⸄o⸅", "inan 2"))
+  mutate(class = c("an", "???", "inan 2"))
 ```
 
+## Zilo questionary (`r length(unique(zilo_experiment$speaker_id))` speakers): entropy value on the right
+
+```{r}
+zilo_experiment %>% 
+  count(translation_en, value, f_id) %>% 
+  group_by(translation_en) %>% 
+  mutate(ratio = n/sum(n),
+         type = factor(1:length(n)),
+         length = length(type),
+         entropy = round(-sum(ratio*log2(ratio)), 2)) %>%  
+  ungroup() %>% 
+  mutate(translation_en = fct_reorder(str_trunc(paste(f_id, translation_en), 20), entropy)) %>% 
+  ggplot(aes(translation_en, ratio, fill = type))+
+  geom_col(position = "stack", show.legend = FALSE)+
+  geom_text(aes(label = paste0(value, " ", round(ratio*100), "%")),  position = position_stack(vjust = 0.5), color = "white", family = "Brill")+
+  geom_label(aes(label = entropy), y = 1.05, fill = "white", size = 6)+
+  ylim(0, 1.07)+
+  coord_flip()+
+  labs(x = "")+
+  scale_fill_hue(l=50)
+```
+
+## Zilo questionary (`r length(unique(zilo_experiment$speaker_id))` speakers): by gender
+
+```{r}
+library(tidytext)
+zilo_experiment %>% 
+  count(translation_en, sex, value, f_id) %>% 
+  group_by(translation_en, sex) %>% 
+  mutate(ratio = n/sum(n),
+         type = factor(1:length(n)),
+         length = length(type),
+         entropy = round(-sum(ratio*log2(ratio)), 2)) %>%  
+  ungroup() %>% 
+  mutate(translation_en = reorder_within(str_trunc(paste(f_id, translation_en), 15), entropy, sex)) %>% 
+  ggplot(aes(translation_en, ratio, fill = type))+
+  geom_col(position = "stack", show.legend = FALSE)+
+  geom_text(aes(label = paste0(value, " ", round(ratio*100), "%")),  position = position_stack(vjust = 0.5), color = "white", family = "Brill", size = 3)+
+  geom_label(aes(label = entropy), y = 1.15, fill = "white", size = 6)+
+  ylim(0, 1.25)+
+  scale_x_reordered()+
+  coord_flip()+
+  facet_wrap(~sex, scales = "free_y")+
+  labs(x = "")+
+  scale_fill_hue(l=50)
+```
+
+## Zilo questionary (`r length(unique(zilo_experiment$speaker_id))` speakers): entropy by gender
+
+```{r}
+zilo_experiment %>% 
+  count(translation_en, sex, value, f_id) %>% 
+  group_by(translation_en, sex) %>% 
+  mutate(ratio = n/sum(n),
+         type = factor(1:length(n)),
+         length = length(type),
+         entropy = round(-sum(ratio*log2(ratio)), 2)) %>% 
+  select(translation_en, sex, entropy, f_id) %>% 
+  distinct() %>% 
+  pivot_wider(names_from = sex, values_from = entropy) %>% 
+  ggplot(aes(m, f, label = paste(f_id, translation_en)))+
+  geom_point()+
+  ggrepel::geom_label_repel(size = 5)+
+  geom_abline(slope = 1, intercept = 0, linetype = 2)
+```
 
 # \color{colorwhite} Nakh-Daghestanian Fieldwork Survey
 
@@ -404,13 +470,71 @@ experiment_sampling %>%
   ylim(0, 125)
 ```
 
+
+## `r n_iter` samples from experiment results sorted by entropy
+
+```{r, fig.height=8.5}
+zilo_experiment %>% 
+  count(translation_en, value, f_id) %>% 
+  group_by(translation_en) %>% 
+  mutate(ratio = n/sum(n),
+         entropy = round(-sum(ratio*log2(ratio)), 2)) %>%  
+  ungroup() %>% 
+  select(f_id, entropy) %>% 
+  distinct() %>% 
+  full_join(experiment_sampling) %>% 
+  mutate(n_types = factor(n_types),
+         type_range = factor(type_range, levels = c("actual minimum", "actual maximum", "preference minimum", "preference maximum")),
+         translation_en = fct_reorder(str_c(str_trunc(paste(f_id, translation_en), 15), " (", entropy, ")"), entropy)) %>% 
+  ggplot(aes(n_types, percentage, label = paste0(round(percentage), "%")))+
+  geom_col()+
+  geom_text(nudge_y = 15)+
+  facet_grid(translation_en~type_range, scales = "free")+
+  coord_flip()+
+  theme(strip.text.y = element_text(angle=0))+
+  labs(x = 'number of variants discovered by "researchers"',
+       y = 'percentage of "researchers"')+
+  ylim(0, 125)
+```
+
+## When "researchers" will find less?
+
+```{r}
+zilo_experiment %>% 
+  count(translation_en, value, f_id) %>% 
+  group_by(translation_en) %>% 
+  mutate(ratio = n/sum(n),
+         entropy = round(-sum(ratio*log2(ratio)), 2)) %>%  
+  ungroup() %>% 
+  select(f_id, entropy) %>% 
+  distinct() %>% 
+  full_join(experiment_sampling) %>% 
+  mutate(n_types = factor(n_types),
+         type_range = factor(type_range, levels = c("actual minimum", "actual maximum", "preference minimum", "preference maximum")),
+         translation_en = fct_reorder(str_c(str_trunc(paste(f_id, translation_en), 15), " (", entropy, ")"), entropy)) %>% 
+  group_by(f_id, translation_en, entropy, type_range) %>% 
+  summarise(n_types = max(as.numeric(n_types)), percentage = max(percentage)) %>% 
+  mutate(range = str_extract(type_range, "m..imum"),
+         range = factor(range, levels=c("minimum", "maximum")),
+         type = str_extract(type_range, "[a-z]* "),
+         type = str_remove(type, "\\s")) %>% 
+  ggplot(aes(entropy, percentage, fill = as.factor(n_types), label = f_id))+
+  geom_point(show.legend = FALSE)+
+  ggrepel::geom_label_repel(size = 6)+
+  facet_grid(type~range)+
+  labs(y = 'percentage of "researchers" that discovered all variants', 
+       fill = "number of\nvariants")
+```
+
+
+
 # \color{colorwhite} Conclusions
 
 ## Conclusions:
 
 - An **"average researcher"** might overlook a significant amount of the variation we observed due to the low number of speakers they usually consult with
 - However, our experiment with 44 speakers also failed to show some of the variation we found in prior research on this dialect
-- The observed variation should be explored in more detail using the collected sociolinguistic parameters
+- The observed variation should be explored in more detail using the collected sociolinguistic parameters (it looks like variation does not corelate with gender)
 - The characteristics of the **"average researcher"** of Nakh-Daghestanian languages can be further eloborated using the parameters collected in the survey
 - The observed variation remains a collection of isolated lexical, phonological and morphological facts... \pause
     - Is it possible to study variation in syntax in this manner? 
