@@ -26,6 +26,13 @@ options(tinytex.verbose = TRUE)
 library(tidyverse)
 library(extrafont)
 theme_set(theme_bw()+theme(text = element_text(size = 20, family = "Brill")))
+
+# create qrcode
+library(qrcode)
+png(filename="images/00_qrcode.png", width = 200, height = 200)
+qrcode_gen("https://github.com/agricolamz/2020.03.14_MSU_Zilo_variation/raw/master/2020.03.14_MSU_Zilo_variation.pdf")
+dev.off()
+
 # read zilo data
 zilo_experiment <- read_csv("data/zilo_experiment_questionary.csv")
 
